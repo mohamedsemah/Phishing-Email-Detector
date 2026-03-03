@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phishing Email Detector</title>
+  <style>
+    :root {
+      --bg: #020617;
+      --bg-alt: #020617;
+      --surface: rgba(15, 23, 42, 0.92);
+      --surface-soft: rgba(15, 23, 42, 0.7);
+      --border: rgba(148, 163, 184, 0.5);
+      --border-soft: rgba(75, 85, 99, 0.5);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --phishing: #fb7185;
+      --legitimate: #4ade80;
+      --uncertain: #facc15;
+      --accent: #6366f1;
+      --accent-soft: rgba(99, 102, 241, 0.12);
+      --accent-strong: #4f46e5;
+      --danger-soft: rgba(248, 113, 113, 0.1);
+      --success-soft: rgba(74, 222, 128, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at 0% 0%, #0f172a 0%, #020617 40%, #000 100%);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+      padding: 1.75rem 1rem;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Animated gradient halo in the background */
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: -20%;
+      background:
+        radial-gradient(circle at 10% 20%, rgba(129, 140, 248, 0.2), transparent 55%),
+        radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.18), transparent 55%),
+        radial-gradient(circle at 50% 100%, rgba(248, 113, 113, 0.16), transparent 55%);
+      mix-blend-mode: screen;
+      opacity: 0.9;
+      pointer-events: none;
+      z-index: -2;
+      animation: aurora 25s ease-in-out infinite alternate;
+    }
+
+    body::after {
+      filter: blur(40px);
+      opacity: 0.6;
+      animation-duration: 35s;
+    }
+
+    @keyframes aurora {
+      0% {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+      50% {
+        transform: translate3d(-2%, 1%, 0) scale(1.05);
+      }
+      100% {
+        transform: translate3d(3%, -2%, 0) scale(1.08);
+      }
+    }
+
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Top chrome with subtle 3D feel */
+    .shell {
+      position: relative;
+      border-radius: 26px;
+      padding: 1.25px;
+      background: linear-gradient(135deg,
+        rgba(148, 163, 184, 0.6),
+        rgba(79, 70, 229, 0.85),
+        rgba(248, 250, 252, 0.9),
+        rgba(52, 211, 153, 0.75)
+      );
+      box-shadow:
+        0 40px 90px rgba(15, 23, 42, 0.9),
+        0 0 0 1px rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(18px);
+    }
+
+    .shell-inner {
+      border-radius: 24px;
+      background: radial-gradient(circle at top right, rgba(15, 23, 42, 0.98), #020617 60%);
+      padding: 1.5rem 1.75rem 1.75rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .shell-inner::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        135deg,
+        rgba(148, 163, 184, 0.16),
+        transparent 30%,
+        rgba(37, 99, 235, 0.22),
+        transparent 70%
+      );
+      mix-blend-mode: soft-light;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .brand-kicker {
+      font-size: 0.8rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .brand-kicker-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 30%, #f97316, #ef4444);
+      box-shadow: 0 0 18px rgba(248, 113, 113, 0.9);
+    }
+
+    .brand-title {
+      font-size: 2.1rem;
+      letter-spacing: 0.06em;
+      font-weight: 720;
+      text-transform: uppercase;
+      background: linear-gradient(120deg, #e5e7eb, #f9fafb, #60a5fa, #a855f7);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow:
+        0 0 24px rgba(15, 23, 42, 0.9),
+        0 0 3px rgba(15, 23, 42, 0.8);
+    }
+
+    .brand-subtitle {
+      font-size: 0.9rem;
+      color: var(--muted);
+      max-width: 420px;
+    }
+
+    .badge-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.45rem;
+      font-size: 0.8rem;
+    }
+
+    .badge {
+      padding: 0.3rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      backdrop-filter: blur(14px);
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.5));
+    }
+
+    .badge-pill {
+      border-radius: 999px;
+      padding: 0.18rem 0.65rem;
+      background: rgba(34, 197, 94, 0.08);
+      color: #bbf7d0;
+      font-size: 0.7rem;
+    }
+
+    .badge-meter {
+      height: 4px;
+      width: 120px;
+      border-radius: 999px;
+      background: rgba(31, 41, 55, 0.9);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .badge-meter-fill {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #4ade80, #a3e635, #fbbf24);
+      transform-origin: left center;
+      transform: scaleX(0.95);
+      box-shadow: 0 0 12px rgba(74, 222, 128, 0.7);
+    }
+
+    .badge-meter-gloss {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        120deg,
+        transparent 0%,
+        rgba(248, 250, 252, 0.35) 25%,
+        transparent 60%
+      );
+      mix-blend-mode: screen;
+      animation: sweep 3.5s ease-in-out infinite;
+    }
+
+    @keyframes sweep {
+      0%   { transform: translateX(-120%); opacity: 0; }
+      15%  { opacity: 1; }
+      60%  { opacity: 1; }
+      100% { transform: translateX(140%); opacity: 0; }
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      opacity: 0.9;
+    }
+
+    .toolbar-left,
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      border-radius: 999px;
+      border: 1px solid var(--border-soft);
+      padding: 0.25rem 0.65rem;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.7));
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .pill-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #22c55e, #a3e635);
+      box-shadow: 0 0 12px rgba(34, 197, 94, 0.9);
+    }
+
+    .pill-dot-warn {
+      background: linear-gradient(135deg, #f97316, #facc15);
+      box-shadow: 0 0 12px rgba(249, 115, 22, 0.9);
+    }
+
+    .cards-row {
+      display: flex;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+      align-items: stretch;
+      margin-bottom: 1.4rem;
+      perspective: 1400px;
+    }
+
+    .cards-row .card {
+      flex: 1 1 320px;
+      min-width: 0;
+    }
+
+    .card {
+      position: relative;
+      background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.88));
+      border-radius: 18px;
+      padding: 1.4rem 1.45rem 1.35rem;
+      margin-bottom: 1.25rem;
+      border: 1px solid var(--border-soft);
+      box-shadow:
+        0 24px 60px rgba(15, 23, 42, 0.7),
+        0 0 0 1px rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(18px);
+      transform-style: preserve-3d;
+      transform: translateZ(0);
+      transition:
+        transform 220ms ease-out,
+        box-shadow 220ms ease-out,
+        border-color 220ms ease-out,
+        background 220ms ease-out;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(135deg, rgba(148, 163, 184, 0.22), transparent 55%);
+      mix-blend-mode: soft-light;
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    .card:hover {
+      transform: translate3d(0, -6px, 0) rotateX(3deg) rotateY(-2deg);
+      box-shadow:
+        0 28px 80px rgba(15, 23, 42, 0.9),
+        0 0 0 1px rgba(55, 65, 81, 0.9);
+      border-color: rgba(129, 140, 248, 0.7);
+      background: radial-gradient(circle at top right, rgba(30, 64, 175, 0.5), rgba(15, 23, 42, 0.96));
+    }
+
+    .card-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .card h2 {
+      font-size: 0.95rem;
+      margin: 0;
+      color: #d1d5db;
+      font-weight: 550;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .card-tag {
+      font-size: 0.7rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .card-description {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 0.9rem;
+    }
+
+    .upload-zone {
+      border-radius: 14px;
+      padding: 1.7rem 1.2rem;
+      text-align: center;
+      cursor: pointer;
+      border: 1px dashed rgba(148, 163, 184, 0.7);
+      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.86));
+      position: relative;
+      overflow: hidden;
+      transition:
+        border-color 180ms ease-out,
+        background 180ms ease-out,
+        transform 180ms ease-out,
+        box-shadow 180ms ease-out;
+    }
+
+    .upload-orbit {
+      position: absolute;
+      inset: -40%;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.28), transparent 50%),
+        radial-gradient(circle at 100% 0%, rgba(129, 140, 248, 0.35), transparent 50%);
+      opacity: 0.22;
+      mix-blend-mode: screen;
+      pointer-events: none;
+      animation: orbit 18s linear infinite;
+    }
+
+    @keyframes orbit {
+      0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+      100% { transform: translate3d(0, 0, 0) rotate(360deg); }
+    }
+
+    .upload-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .upload-preview-wrapper {
+      margin-top: 0.85rem;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.9));
+      max-height: 220px;
+      box-shadow:
+        0 14px 30px rgba(15, 23, 42, 0.9),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+      display: none;
+    }
+
+    .upload-preview-wrapper.visible {
+      display: block;
+    }
+
+    /* When a preview is present, hide the helper text and icon so the image stands alone */
+    .upload-zone.has-preview .upload-icon-frame,
+    .upload-zone.has-preview .upload-main-text,
+    .upload-zone.has-preview .upload-sub-text {
+      display: none;
+    }
+
+    #uploadPreview {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      transform-origin: center;
+      transition: transform 220ms ease-out, filter 220ms ease-out;
+    }
+
+    .upload-preview-wrapper.visible #uploadPreview {
+      transform: scale(1.01);
+      filter: saturate(1.05);
+    }
+
+    .upload-icon-frame {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      margin: 0 auto 0.75rem;
+      background: radial-gradient(circle at 30% 0%, rgba(248, 250, 252, 0.2), rgba(37, 99, 235, 0.25));
+      border: 1px solid rgba(148, 163, 184, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        0 10px 30px rgba(15, 23, 42, 0.9),
+        0 0 18px rgba(129, 140, 248, 0.8);
+      transform: translateZ(12px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-icon-frame::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(248, 250, 252, 0.5), transparent 55%);
+      opacity: 0.6;
+      mix-blend-mode: screen;
+    }
+
+    .upload-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 1px solid rgba(191, 219, 254, 0.9);
+      background: radial-gradient(circle at 30% 0%, rgba(248, 250, 252, 0.9), rgba(59, 130, 246, 0.3));
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+      position: relative;
+    }
+
+    .upload-icon::before {
+      content: "";
+      position: absolute;
+      inset: 4px 5px auto;
+      height: 7px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #1e3a8a, #22c55e);
+    }
+
+    .upload-icon::after {
+      content: "";
+      position: absolute;
+      inset: auto 7px 5px;
+      height: 3px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .upload-main-text {
+      font-size: 0.85rem;
+      color: #e5e7eb;
+      margin-bottom: 0.2rem;
+    }
+
+    .upload-sub-text {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .upload-zone input {
+      display: none;
+    }
+
+    .note {
+      font-size: 0.74rem;
+      color: var(--muted);
+      margin-top: 0.7rem;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.dragover {
+      border-color: rgba(129, 140, 248, 0.95);
+      background: radial-gradient(circle at top, rgba(30, 64, 175, 0.9), rgba(15, 23, 42, 0.9));
+      transform: translateY(-3px);
+      box-shadow:
+        0 22px 45px rgba(15, 23, 42, 0.9),
+        0 0 24px rgba(129, 140, 248, 0.7);
+    }
+
+    .upload-zone.dragover .upload-icon-frame {
+      animation: bob 1s ease-in-out infinite;
+    }
+
+    @keyframes bob {
+      0%, 100% { transform: translateZ(12px) translateY(0); }
+      50% { transform: translateZ(12px) translateY(-4px); }
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 0.8rem 0.8rem 0.85rem;
+      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.92));
+      border: 1px solid rgba(55, 65, 81, 0.95);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 0.9rem;
+      resize: vertical;
+      outline: none;
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.9);
+      transition:
+        border-color 160ms ease-out,
+        box-shadow 160ms ease-out,
+        background 160ms ease-out,
+        transform 160ms ease-out;
+    }
+
+    textarea::placeholder {
+      color: var(--muted);
+    }
+
+    textarea:focus {
+      border-color: rgba(129, 140, 248, 0.9);
+      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.98));
+      box-shadow:
+        0 0 0 1px rgba(79, 70, 229, 0.6),
+        0 20px 40px rgba(15, 23, 42, 0.8);
+      transform: translateY(-1px);
+    }
+
+    .row {
+      display: flex;
+      gap: 0.85rem;
+      margin-bottom: 0.9rem;
+      flex-wrap: wrap;
+    }
+
+    .row label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .row > div {
+      flex: 1;
+      min-width: 0;
+    }
+
+    button {
+      background: radial-gradient(circle at 0% 0%, #fbbf24, #f97316 30%, #4f46e5 75%);
+      color: white;
+      border: none;
+      padding: 0.7rem 1.3rem;
+      border-radius: 999px;
+      font-size: 0.94rem;
+      cursor: pointer;
+      font-weight: 550;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      box-shadow:
+        0 16px 40px rgba(15, 23, 42, 0.9),
+        0 0 18px rgba(129, 140, 248, 0.8);
+      position: relative;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      transform: translateZ(8px);
+      transition:
+        transform 160ms ease-out,
+        box-shadow 160ms ease-out,
+        filter 160ms ease-out,
+        background-position 220ms ease-out;
+      background-size: 200% 200%;
+      background-position: 0% 50%;
+    }
+
+    button::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(248, 250, 252, 0.45), transparent 55%);
+      mix-blend-mode: screen;
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    button span.spark {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #fef3c7;
+      box-shadow:
+        0 0 10px rgba(250, 250, 249, 0.8),
+        0 0 22px rgba(250, 204, 21, 0.9);
+    }
+
+    button:hover {
+      filter: brightness(1.08);
+      transform: translate3d(0, -2px, 0);
+      background-position: 100% 50%;
+      box-shadow:
+        0 22px 50px rgba(15, 23, 42, 1),
+        0 0 30px rgba(129, 140, 248, 1);
+    }
+
+    button:active {
+      transform: translate3d(0, 0, 0) scale(0.98);
+      box-shadow:
+        0 10px 26px rgba(15, 23, 42, 0.9),
+        0 0 16px rgba(99, 102, 241, 0.8);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      filter: grayscale(0.2);
+      box-shadow:
+        0 6px 16px rgba(15, 23, 42, 0.9),
+        0 0 10px rgba(55, 65, 81, 0.7);
+    }
+
+    button .label {
+      position: relative;
+      z-index: 1;
+    }
+
+    .error {
+      color: var(--phishing);
+      font-size: 0.8rem;
+      margin-top: 0.6rem;
+      min-height: 1em;
+    }
+
+    .error::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 40% 30%, #fed7d7, #f97373);
+      box-shadow: 0 0 14px rgba(248, 113, 113, 0.9);
+      margin-right: 0.4rem;
+    }
+
+    .how-it-works {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    .how-it-works h3 {
+      font-size: 0.9rem;
+      margin: 0 0 0.35rem 0;
+      color: var(--text);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .how-it-works ul {
+      list-style: none;
+      padding-left: 0;
+      margin: 0.2rem 0 0;
+      display: grid;
+      gap: 0.18rem;
+    }
+
+    .how-it-works li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.4rem;
+    }
+
+    .how-it-works-bullet {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      margin-top: 0.18rem;
+      background: linear-gradient(135deg, #38bdf8, #a855f7);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.9);
+    }
+
+    .how-it-works-text {
+      flex: 1;
+    }
+
+    .progress-card {
+      margin-top: 0.4rem;
+      margin-bottom: 0.2rem;
+      padding: 0.65rem 0.85rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.92));
+      box-shadow:
+        0 10px 26px rgba(15, 23, 42, 0.9),
+        0 0 0 1px rgba(15, 23, 42, 0.95);
+      display: none;
+    }
+
+    .progress-card.visible {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .progress-label-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      min-width: 0;
+    }
+
+    .progress-label-main {
+      font-size: 0.8rem;
+      color: #e5e7eb;
+    }
+
+    .progress-label-sub {
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .progress-percent {
+      font-size: 0.78rem;
+      color: #e5e7eb;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+
+    .progress-bar-shell {
+      flex: 1;
+      min-width: 120px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(31, 41, 55, 0.9);
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 1);
+      height: 6px;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      position: absolute;
+      inset: 0;
+      transform-origin: left center;
+      transform: scaleX(0);
+      background: linear-gradient(90deg, #4ade80, #a3e635, #fbbf24, #fb7185);
+      box-shadow: 0 0 14px rgba(74, 222, 128, 0.85);
+      transition: transform 160ms ease-out;
+    }
+
+    .result {
+      margin-top: 1.4rem;
+      padding: 1.15rem 1.2rem 1.05rem;
+      border-radius: 16px;
+      display: none;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.92));
+      box-shadow:
+        0 16px 40px rgba(15, 23, 42, 0.9),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+      position: relative;
+      overflow: hidden;
+      transform-origin: top center;
+      transform: translateY(12px) scale(0.98);
+      opacity: 0;
+      transition:
+        opacity 260ms ease-out,
+        transform 260ms ease-out,
+        box-shadow 220ms ease-out,
+        border-color 220ms ease-out,
+        background 220ms ease-out;
+    }
+
+    .result::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(148, 163, 184, 0.26), transparent 55%);
+      mix-blend-mode: soft-light;
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .result.visible {
+      display: block;
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .result.phishing {
+      background: radial-gradient(circle at top left, var(--danger-soft), rgba(15, 23, 42, 0.96));
+      border-color: rgba(248, 113, 113, 0.9);
+      box-shadow:
+        0 24px 60px rgba(15, 23, 42, 1),
+        0 0 30px rgba(248, 113, 113, 0.7);
+    }
+
+    .result.legitimate {
+      background: radial-gradient(circle at top left, var(--success-soft), rgba(15, 23, 42, 0.96));
+      border-color: rgba(74, 222, 128, 0.9);
+      box-shadow:
+        0 24px 60px rgba(15, 23, 42, 1),
+        0 0 26px rgba(74, 222, 128, 0.7);
+    }
+
+    .result.uncertain {
+      background: radial-gradient(circle at top left, rgba(250, 204, 21, 0.16), rgba(15, 23, 42, 0.96));
+      border-color: rgba(250, 204, 21, 0.9);
+      box-shadow:
+        0 24px 60px rgba(15, 23, 42, 1),
+        0 0 26px rgba(250, 204, 21, 0.7);
+    }
+
+    .result.not_email {
+      background: radial-gradient(circle at top left, rgba(129, 140, 248, 0.14), rgba(15, 23, 42, 0.96));
+      border-color: rgba(129, 140, 248, 0.9);
+      box-shadow:
+        0 24px 60px rgba(15, 23, 42, 1),
+        0 0 26px rgba(129, 140, 248, 0.7);
+    }
+
+    .result-label {
+      font-size: 1.08rem;
+      font-weight: 650;
+      margin-bottom: 0.25rem;
+    }
+
+    .result.phishing .result-label {
+      color: #fecaca;
+    }
+
+    .result.legitimate .result-label {
+      color: #bbf7d0;
+    }
+
+    .result.uncertain .result-label {
+      color: #fef9c3;
+    }
+
+    .result.not_email .result-label {
+      color: #e0e7ff;
+    }
+
+    .result-top-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .result-confidence {
+      font-size: 0.84rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    .result-badges {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.7rem;
+    }
+
+    .prob-chip {
+      border-radius: 999px;
+      padding: 0.18rem 0.55rem;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.8);
+    }
+
+    .score-chip {
+      border-radius: 999px;
+      padding: 0.18rem 0.55rem;
+      background: rgba(30, 64, 175, 0.3);
+      border: 1px solid rgba(129, 140, 248, 0.9);
+      color: #e0e7ff;
+    }
+
+    .result-message {
+      font-size: 0.82rem;
+      margin-top: 0.5rem;
+      color: var(--muted);
+    }
+
+    .result-preview {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin-top: 0.8rem;
+      max-height: 6em;
+      padding: 0.5rem 0.7rem;
+      background: rgba(15, 23, 42, 0.96);
+      border-radius: 10px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      border: 1px solid rgba(31, 41, 55, 0.9);
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 1);
+    }
+
+    @media (max-width: 900px) {
+      .shell-inner {
+        padding: 1.2rem 1rem 1.4rem;
+      }
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .badge-stack {
+        align-items: flex-start;
+      }
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 1.25rem 0.65rem;
+      }
+      .cards-row {
+        flex-direction: column;
+      }
+      button {
+        width: 100%;
+        justify-content: center;
+      }
+      .toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="shell">
+      <div class="shell-inner">
+        <header class="header">
+          <div class="brand">
+            <div class="brand-kicker">
+              <span class="brand-kicker-dot"></span>
+              Advanced phishing surface
+            </div>
+            <div class="brand-title">Phishing Scanner</div>
+            <div class="brand-subtitle">
+              Upload an email screenshot or paste the content. A fine-tuned RoBERTa model estimates phishing risk with high accuracy and email-aware heuristics.
+            </div>
+          </div>
+          <div class="badge-stack">
+            <div class="badge">
+              <span>RoBERTa · test accuracy&nbsp;≈&nbsp;98.8%</span>
+              <span class="badge-pill">F1&nbsp;0.989 · recall&nbsp;98.6%</span>
+            </div>
+            <div class="badge-meter">
+              <div class="badge-meter-fill"></div>
+              <div class="badge-meter-gloss"></div>
+            </div>
+          </div>
+        </header>
+
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <div class="pill">
+              <span class="pill-dot"></span>
+              <span>Screenshot → OCR → RoBERTa</span>
+            </div>
+            <div class="pill">
+              <span class="pill-dot-warn"></span>
+              <span>Heuristics for non‑email images &amp; uncertainty</span>
+            </div>
+          </div>
+          <div class="toolbar-right">
+            <div class="pill">
+              <span>Best for desktop &amp; mobile email screenshots</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="cards-row">
+          <div class="card">
+            <div class="card-header-row">
+              <h2>Option 1 · Upload screenshot</h2>
+              <div class="card-tag">Visual email</div>
+            </div>
+            <p class="card-description">
+              Drop in a clean screenshot of your email window. We run OCR, normalize the text and feed it through the phishing detector.
+            </p>
+            <div class="upload-zone" id="uploadZone">
+              <div class="upload-orbit"></div>
+              <div class="upload-content">
+                <div class="upload-icon-frame">
+                  <div class="upload-icon"></div>
+                </div>
+                <p class="upload-main-text">Drag &amp; drop an image, or click to browse</p>
+                <p class="upload-sub-text">Optimized for PNG, JPEG, WEBP, HEIC/HEIF (where supported).</p>
+                <div class="upload-preview-wrapper">
+                  <img id="uploadPreview" alt="Uploaded screenshot preview" />
+                </div>
+              </div>
+              <input type="file" id="fileInput" accept="image/*">
+            </div>
+            <button type="button" id="btnPredictImage" disabled>
+              <span class="label">Analyze screenshot</span>
+              <span class="spark"></span>
+            </button>
+            <div class="error" id="imageError"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header-row">
+              <h2>Option 2 · Paste email text</h2>
+              <div class="card-tag">Raw content</div>
+            </div>
+            <p class="card-description">
+              Paste subject and body directly for the cleanest possible signal (no OCR artifacts, perfect for forwarded emails).
+            </p>
+            <div class="row">
+              <div>
+                <label>Subject (optional)</label>
+                <textarea id="subjectInput" placeholder="Subject line as it appears in the email client..."></textarea>
+              </div>
+              <div>
+                <label>Body (or full email)</label>
+                <textarea id="bodyInput" placeholder="Paste the full email body, including links, disclaimers and signature..."></textarea>
+              </div>
+            </div>
+            <button type="button" id="btnPredictText">
+              <span class="label">Analyze pasted text</span>
+              <span class="spark"></span>
+            </button>
+            <div class="error" id="textError"></div>
+          </div>
+        </div>
+
+        <div class="how-it-works">
+          <h3>How it works</h3>
+          <ul>
+            <li>
+              <span class="how-it-works-bullet"></span>
+              <span class="how-it-works-text">Text is extracted from your screenshot (or taken straight from your pasted input).</span>
+            </li>
+            <li>
+              <span class="how-it-works-bullet"></span>
+              <span class="how-it-works-text">A RoBERTa model trained on multiple curated email datasets scores phishing vs legitimate.</span>
+            </li>
+            <li>
+              <span class="how-it-works-bullet"></span>
+              <span class="how-it-works-text">Email‑likeness heuristics and confidence rules flag non‑email images and uncertain predictions.</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="progress-card" id="progressCard">
+          <div class="progress-label-row">
+            <div class="progress-label-main" id="progressLabelMain">Preparing analysis…</div>
+            <div class="progress-label-sub" id="progressLabelSub">This usually takes a few seconds.</div>
+          </div>
+          <div class="progress-bar-shell">
+            <div class="progress-bar-fill" id="progressBarFill"></div>
+          </div>
+          <div class="progress-percent" id="progressPercent">0%</div>
+        </div>
+
+        <div class="card result" id="resultCard">
+          <div class="result-top-row">
+            <div>
+              <div class="result-label" id="resultLabel"></div>
+              <div class="result-confidence" id="resultConfidence"></div>
+            </div>
+            <div class="result-badges">
+              <div class="prob-chip" id="resultProbChip"></div>
+              <div class="score-chip" id="resultScoreChip"></div>
+            </div>
+          </div>
+          <div class="result-message" id="resultMessage"></div>
+          <div class="result-preview" id="resultPreview"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

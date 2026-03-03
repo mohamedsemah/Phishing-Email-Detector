@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.venv
+venv/
+ENV/
+
+# Datasets (large)
+Kaggle-Dataset/*.csv
+
+# Model artifacts (large)
+models/
+*.bin
+*.safetensors
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Benchmark output
+benchmark_report.md
+
+# Logs
+*.log
