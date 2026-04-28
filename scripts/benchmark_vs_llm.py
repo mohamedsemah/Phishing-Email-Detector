@@ -69,7 +69,7 @@ def main():
 
     model_dir = args.model_dir or (Path(__file__).resolve().parents[1] / "models" / "distilbert-base-uncased")
     report = [
-        "# Phishing detector benchmark",
+        "# PRISM benchmark (Predictive Risk Indicator Scoring Model)",
         "",
         f"Test samples: {len(test_labels)}",
         "",

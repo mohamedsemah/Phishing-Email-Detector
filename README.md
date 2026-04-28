@@ -1,6 +1,6 @@
-# Phishing Email Detector
+# PRISM: Predictive Risk Indicator Scoring Model
 
-Web app that detects whether an email is phishing or legitimate. You can **upload a screenshot** of an email (OCR extracts text, then the model predicts) or **paste email text** (subject/body) and get a prediction with confidence.
+PRISM (Predictive Risk Indicator Scoring Model) is a web app that detects whether an email is phishing or legitimate. You can **upload a screenshot** of an email (OCR extracts text, then the model predicts) or **paste email text** (subject/body) and get a prediction with confidence.
 
 ## Setup
 
@@ -63,6 +63,6 @@ The dataset is under `Kaggle-Dataset/`: 7 CSV files (phishing vs legitimate emai
 - `src/train.py` — fine-tune transformer (RoBERTa/DistilBERT), save to `models/`.
 - `src/api/main.py` — FastAPI app (predict/image, predict/text, serve UI).
 - `src/api/predict.py` — load model and run inference.
-- `src/api/templates/index.html` + `static/app.js` — upload and paste UI.
+- `src/api/templates/index.html` — self-contained upload and paste UI (inline CSS/JS).
 - `scripts/save_pretrained_for_api.py` — save pretrained model so API works without training.
 - `scripts/benchmark_vs_llm.py` — benchmark script vs baseline.

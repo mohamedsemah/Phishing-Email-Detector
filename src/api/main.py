@@ -78,7 +78,10 @@ def _run_ocr(image_bytes: bytes) -> str:
         raise HTTPException(status_code=400, detail=f"OCR failed: {str(e)}")
 
 
-app = FastAPI(title="Phishing Email Detector", description="Upload screenshot or paste email text")
+app = FastAPI(
+    title="PRISM: Predictive Risk Indicator Scoring Model",
+    description="Upload an email screenshot or paste email text to get a phishing risk score",
+)
 
 # Pydantic models for request/response
 class PredictTextBody(BaseModel):
@@ -120,7 +123,7 @@ async def predict_text(body: PredictTextBody):
     return PredictResponse(**out)
 
 
-# Frontend: serve static HTML/JS from templates and static
+# Frontend: HTML UI from templates; optional files under /static
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 STATIC_DIR.mkdir(exist_ok=True)
@@ -130,8 +133,18 @@ TEMPLATES_DIR.mkdir(exist_ok=True)
 async def index():
     index_html = TEMPLATES_DIR / "index.html"
     if index_html.exists():
-        return index_html.read_text(encoding="utf-8")
-    return "<html><body><h1>Phishing Detector API</h1><p>Use POST /predict/image or POST /predict/text. Serve index.html from templates/ for the UI.</p></body></html>"
+        return HTMLResponse(
+            content=index_html.read_text(encoding="utf-8"),
+            headers={
+                "Cache-Control": "no-store, max-age=0",
+                "Pragma": "no-cache",
+            },
+        )
+    return (
+        "<html><body><h1>PRISM API</h1>"
+        "<p>Use POST /predict/image or POST /predict/text. "
+        "Serve index.html from templates/ for the full PRISM UI.</p></body></html>"
+    )
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

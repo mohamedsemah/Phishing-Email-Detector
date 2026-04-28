@@ -2,1127 +2,1178 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Phishing Email Detector</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PRISM — Email threat intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #020617;
-      --bg-alt: #020617;
-      --surface: rgba(15, 23, 42, 0.92);
-      --surface-soft: rgba(15, 23, 42, 0.7);
-      --border: rgba(148, 163, 184, 0.5);
-      --border-soft: rgba(75, 85, 99, 0.5);
-      --text: #e5e7eb;
-      --muted: #9ca3af;
-      --phishing: #fb7185;
-      --legitimate: #4ade80;
-      --uncertain: #facc15;
-      --accent: #6366f1;
-      --accent-soft: rgba(99, 102, 241, 0.12);
-      --accent-strong: #4f46e5;
-      --danger-soft: rgba(248, 113, 113, 0.1);
-      --success-soft: rgba(74, 222, 128, 0.08);
+      --bg-deep: #06060a;
+      --bg-card: rgba(18, 18, 28, 0.72);
+      --stroke: rgba(255, 248, 235, 0.12);
+      --gold: #e8c872;
+      --gold-dim: rgba(232, 200, 114, 0.35);
+      --cream: #f7f2ea;
+      --muted: rgba(247, 242, 234, 0.55);
+      --danger: #ff4d6d;
+      --safe: #5fe3b3;
+      --warn: #ffd166;
+      --info: #9db4ff;
+      --font-display: "Fraunces", Georgia, serif;
+      --font-ui: "Outfit", system-ui, sans-serif;
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
     }
 
-    * {
-      box-sizing: border-box;
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html {
+      height: 100%;
+      overflow: hidden;
     }
 
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at 0% 0%, #0f172a 0%, #020617 40%, #000 100%);
-      color: var(--text);
       margin: 0;
-      min-height: 100vh;
-      padding: 1.75rem 1rem;
-      overflow-x: hidden;
-      position: relative;
+      height: 100%;
+      font-family: var(--font-ui);
+      font-weight: 400;
+      color: var(--cream);
+      background: var(--bg-deep);
+      overflow: hidden;
     }
 
-    /* Animated gradient halo in the background */
-    body::before,
-    body::after {
-      content: "";
+    /* Ambient orbs */
+    .bg-stage {
       position: fixed;
-      inset: -20%;
-      background:
-        radial-gradient(circle at 10% 20%, rgba(129, 140, 248, 0.2), transparent 55%),
-        radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.18), transparent 55%),
-        radial-gradient(circle at 50% 100%, rgba(248, 113, 113, 0.16), transparent 55%);
-      mix-blend-mode: screen;
-      opacity: 0.9;
+      inset: 0;
+      z-index: 0;
       pointer-events: none;
-      z-index: -2;
-      animation: aurora 25s ease-in-out infinite alternate;
+      overflow: hidden;
     }
 
-    body::after {
-      filter: blur(40px);
-      opacity: 0.6;
-      animation-duration: 35s;
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.45;
+      animation: orbFloat 18s var(--ease-out) infinite alternate;
     }
 
-    @keyframes aurora {
-      0% {
-        transform: translate3d(0, 0, 0) scale(1);
-      }
-      50% {
-        transform: translate3d(-2%, 1%, 0) scale(1.05);
-      }
-      100% {
-        transform: translate3d(3%, -2%, 0) scale(1.08);
+    .orb-a {
+      width: min(55vw, 480px);
+      height: min(55vw, 480px);
+      background: radial-gradient(circle, rgba(232, 200, 114, 0.5) 0%, transparent 70%);
+      top: -12%;
+      right: -8%;
+    }
+
+    .orb-b {
+      width: min(45vw, 400px);
+      height: min(45vw, 400px);
+      background: radial-gradient(circle, rgba(120, 90, 200, 0.35) 0%, transparent 70%);
+      bottom: -5%;
+      left: -10%;
+      animation-delay: -6s;
+    }
+
+    .orb-c {
+      width: min(35vw, 320px);
+      height: min(35vw, 320px);
+      background: radial-gradient(circle, rgba(95, 227, 179, 0.2) 0%, transparent 70%);
+      top: 42%;
+      left: 35%;
+      animation-delay: -12s;
+    }
+
+    @keyframes orbFloat {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(-3%, 4%) scale(1.08); }
+    }
+
+    .noise {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .orb, .hero-anim, .tab-glider, .panel-inner, #uploadZone, .btn-primary, #progressBarFill::after, #resultCard.visible {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
       }
     }
 
     .page {
-      max-width: 1120px;
+      position: relative;
+      z-index: 2;
+      box-sizing: border-box;
+      height: 100dvh;
+      max-height: 100dvh;
+      max-width: 980px;
       margin: 0 auto;
-      position: relative;
-      z-index: 1;
-    }
-
-    /* Top chrome with subtle 3D feel */
-    .shell {
-      position: relative;
-      border-radius: 26px;
-      padding: 1.25px;
-      background: linear-gradient(135deg,
-        rgba(148, 163, 184, 0.6),
-        rgba(79, 70, 229, 0.85),
-        rgba(248, 250, 252, 0.9),
-        rgba(52, 211, 153, 0.75)
-      );
-      box-shadow:
-        0 40px 90px rgba(15, 23, 42, 0.9),
-        0 0 0 1px rgba(15, 23, 42, 0.75);
-      backdrop-filter: blur(18px);
-    }
-
-    .shell-inner {
-      border-radius: 24px;
-      background: radial-gradient(circle at top right, rgba(15, 23, 42, 0.98), #020617 60%);
-      padding: 1.5rem 1.75rem 1.75rem;
-      position: relative;
+      padding: 0.4rem 0.75rem 0.5rem;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
     }
 
-    .shell-inner::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(
-        135deg,
-        rgba(148, 163, 184, 0.16),
-        transparent 30%,
-        rgba(37, 99, 235, 0.22),
-        transparent 70%
-      );
-      mix-blend-mode: soft-light;
-      opacity: 0.7;
-      pointer-events: none;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 1.75rem;
-    }
-
-    .brand {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-    }
-
-    .brand-kicker {
-      font-size: 0.8rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .brand-kicker-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: radial-gradient(circle at 30% 30%, #f97316, #ef4444);
-      box-shadow: 0 0 18px rgba(248, 113, 113, 0.9);
-    }
-
-    .brand-title {
-      font-size: 2.1rem;
-      letter-spacing: 0.06em;
-      font-weight: 720;
-      text-transform: uppercase;
-      background: linear-gradient(120deg, #e5e7eb, #f9fafb, #60a5fa, #a855f7);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      text-shadow:
-        0 0 24px rgba(15, 23, 42, 0.9),
-        0 0 3px rgba(15, 23, 42, 0.8);
-    }
-
-    .brand-subtitle {
-      font-size: 0.9rem;
-      color: var(--muted);
-      max-width: 420px;
-    }
-
-    .badge-stack {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 0.45rem;
-      font-size: 0.8rem;
-    }
-
-    .badge {
-      padding: 0.3rem 0.9rem;
-      border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.7);
-      color: var(--muted);
-      display: inline-flex;
-      align-items: center;
-      gap: 0.45rem;
-      backdrop-filter: blur(14px);
-      background: linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.5));
-    }
-
-    .badge-pill {
-      border-radius: 999px;
-      padding: 0.18rem 0.65rem;
-      background: rgba(34, 197, 94, 0.08);
-      color: #bbf7d0;
-      font-size: 0.7rem;
-    }
-
-    .badge-meter {
-      height: 4px;
-      width: 120px;
-      border-radius: 999px;
-      background: rgba(31, 41, 55, 0.9);
-      overflow: hidden;
-      position: relative;
-    }
-
-    .badge-meter-fill {
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      background: linear-gradient(90deg, #4ade80, #a3e635, #fbbf24);
-      transform-origin: left center;
-      transform: scaleX(0.95);
-      box-shadow: 0 0 12px rgba(74, 222, 128, 0.7);
-    }
-
-    .badge-meter-gloss {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(
-        120deg,
-        transparent 0%,
-        rgba(248, 250, 252, 0.35) 25%,
-        transparent 60%
-      );
-      mix-blend-mode: screen;
-      animation: sweep 3.5s ease-in-out infinite;
-    }
-
-    @keyframes sweep {
-      0%   { transform: translateX(-120%); opacity: 0; }
-      15%  { opacity: 1; }
-      60%  { opacity: 1; }
-      100% { transform: translateX(140%); opacity: 0; }
-    }
-
-    .toolbar {
+    /* Hero — single compact band */
+    .hero {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
-      margin-bottom: 1.25rem;
-      font-size: 0.75rem;
-      color: var(--muted);
-      opacity: 0.9;
-    }
-
-    .toolbar-left,
-    .toolbar-right {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
+      gap: 0.5rem 1rem;
       flex-wrap: wrap;
+      flex-shrink: 0;
+      margin-bottom: 0.4rem;
+      padding: 0.15rem 0;
     }
 
-    .pill {
-      border-radius: 999px;
-      border: 1px solid var(--border-soft);
-      padding: 0.25rem 0.65rem;
-      background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.7));
+    .hero-left {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .hero-badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.35rem;
+      padding: 0.22rem 0.55rem;
+      border-radius: 999px;
+      border: 1px solid var(--stroke);
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 0.58rem;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0;
+      opacity: 0;
+      animation: heroIn 0.9s var(--ease-out) 0.05s forwards;
     }
 
-    .pill-dot {
+    .hero-badge::before {
+      content: "";
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #22c55e, #a3e635);
-      box-shadow: 0 0 12px rgba(34, 197, 94, 0.9);
+      background: var(--gold);
+      box-shadow: 0 0 12px var(--gold);
+      animation: pulseDot 2.2s ease-in-out infinite;
     }
 
-    .pill-dot-warn {
-      background: linear-gradient(135deg, #f97316, #facc15);
-      box-shadow: 0 0 12px rgba(249, 115, 22, 0.9);
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
     }
 
-    .cards-row {
-      display: flex;
-      gap: 1.25rem;
-      flex-wrap: wrap;
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(1.35rem, 4vw, 1.75rem);
+      font-weight: 600;
+      font-variation-settings: "opsz" 48;
+      line-height: 1;
+      margin: 0;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #fff 0%, var(--cream) 40%, var(--gold) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: heroIn 0.95s var(--ease-out) 0.12s forwards;
+    }
+
+    .hero p {
+      margin: 0;
+      flex: 1 1 140px;
+      max-width: 36ch;
+      font-size: 0.68rem;
+      font-weight: 400;
+      line-height: 1.35;
+      color: var(--muted);
+      text-align: right;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: heroIn 0.95s var(--ease-out) 0.22s forwards;
+    }
+
+    @media (max-width: 560px) {
+      .hero p { text-align: left; flex-basis: 100%; max-width: none; }
+    }
+
+    /* Input vs status columns */
+    .main-split {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
       align-items: stretch;
-      margin-bottom: 1.4rem;
-      perspective: 1400px;
     }
 
-    .cards-row .card {
-      flex: 1 1 320px;
-      min-width: 0;
+    @media (max-width: 720px) {
+      .main-split {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 1fr) minmax(0, 0.95fr);
+      }
     }
 
-    .card {
-      position: relative;
-      background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.88));
+    .main-split > .glass,
+    .main-split > .status-column {
+      min-height: 0;
+    }
+
+    .status-column {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      min-height: 0;
       border-radius: 18px;
-      padding: 1.4rem 1.45rem 1.35rem;
-      margin-bottom: 1.25rem;
-      border: 1px solid var(--border-soft);
+      border: 1px solid var(--stroke);
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 0.55rem 0.65rem;
+      overflow: hidden;
       box-shadow:
-        0 24px 60px rgba(15, 23, 42, 0.7),
-        0 0 0 1px rgba(15, 23, 42, 0.85);
-      backdrop-filter: blur(18px);
-      transform-style: preserve-3d;
-      transform: translateZ(0);
-      transition:
-        transform 220ms ease-out,
-        box-shadow 220ms ease-out,
-        border-color 220ms ease-out,
-        background 220ms ease-out;
+        0 4px 24px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
     }
 
-    .card::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      background: linear-gradient(135deg, rgba(148, 163, 184, 0.22), transparent 55%);
-      mix-blend-mode: soft-light;
-      opacity: 0.3;
-      pointer-events: none;
+    .status-column-title {
+      font-family: ui-monospace, monospace;
+      font-size: 0.58rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--muted);
+      flex-shrink: 0;
     }
 
-    .card:hover {
-      transform: translate3d(0, -6px, 0) rotateX(3deg) rotateY(-2deg);
-      box-shadow:
-        0 28px 80px rgba(15, 23, 42, 0.9),
-        0 0 0 1px rgba(55, 65, 81, 0.9);
-      border-color: rgba(129, 140, 248, 0.7);
-      background: radial-gradient(circle at top right, rgba(30, 64, 175, 0.5), rgba(15, 23, 42, 0.96));
+    .result-stack {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      overflow: hidden;
     }
 
-    .card-header-row {
+    .result-empty {
+      flex: 1;
+      min-height: 4rem;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 0.8rem;
-      margin-bottom: 0.4rem;
-    }
-
-    .card h2 {
-      font-size: 0.95rem;
-      margin: 0;
-      color: #d1d5db;
-      font-weight: 550;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .card-tag {
-      font-size: 0.7rem;
-      padding: 0.15rem 0.5rem;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(148, 163, 184, 0.55);
-      color: var(--muted);
-      white-space: nowrap;
-    }
-
-    .card-description {
-      font-size: 0.82rem;
-      color: var(--muted);
-      margin-bottom: 0.9rem;
-    }
-
-    .upload-zone {
-      border-radius: 14px;
-      padding: 1.7rem 1.2rem;
+      justify-content: center;
       text-align: center;
-      cursor: pointer;
-      border: 1px dashed rgba(148, 163, 184, 0.7);
-      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.86));
-      position: relative;
+      font-size: 0.72rem;
+      line-height: 1.4;
+      color: var(--muted);
+      border: 1px dashed var(--stroke);
+      border-radius: 12px;
+      padding: 0.5rem;
+    }
+
+    .result-empty.is-hidden {
+      display: none;
+    }
+
+    @keyframes heroIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Glass card — input column */
+    .glass {
+      border-radius: 18px;
+      border: 1px solid var(--stroke);
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      padding: 0.55rem 0.65rem;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
-      transition:
-        border-color 180ms ease-out,
-        background 180ms ease-out,
-        transform 180ms ease-out,
-        box-shadow 180ms ease-out;
+      opacity: 0;
+      transform: translateY(12px) scale(0.99);
+      animation: cardEnter 1s var(--ease-spring) 0.35s forwards;
     }
 
-    .upload-orbit {
-      position: absolute;
-      inset: -40%;
-      background:
-        radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.28), transparent 50%),
-        radial-gradient(circle at 100% 0%, rgba(129, 140, 248, 0.35), transparent 50%);
-      opacity: 0.22;
-      mix-blend-mode: screen;
-      pointer-events: none;
-      animation: orbit 18s linear infinite;
+    @keyframes cardEnter {
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     }
 
-    @keyframes orbit {
-      0% { transform: translate3d(0, 0, 0) rotate(0deg); }
-      100% { transform: translate3d(0, 0, 0) rotate(360deg); }
-    }
-
-    .upload-content {
+    /* Tabs */
+    .tablist {
       position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.25rem;
+      padding: 0.3rem;
+      margin-bottom: 0.45rem;
+      flex-shrink: 0;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--stroke);
+    }
+
+    .tab-glider {
+      position: absolute;
+      top: 0.3rem;
+      left: 0.3rem;
+      width: calc(50% - 0.45rem);
+      height: calc(100% - 0.6rem);
+      border-radius: 10px;
+      background: linear-gradient(145deg, rgba(232, 200, 114, 0.22) 0%, rgba(255, 255, 255, 0.08) 100%);
+      border: 1px solid var(--gold-dim);
+      box-shadow: 0 8px 32px rgba(232, 200, 114, 0.12);
+      transition: transform 0.55s var(--ease-spring);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .tab-glider[data-pos="1"] {
+      transform: translateX(calc(100% + 0.45rem));
+    }
+
+    .tab-btn {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      padding: 0.55rem 0.65rem;
+      font-family: var(--font-ui);
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: transparent;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: color 0.35s var(--ease-out), transform 0.25s var(--ease-out);
+    }
+
+    .tab-btn:hover {
+      color: var(--cream);
+      transform: scale(1.02);
+    }
+
+    .tab-btn[aria-selected="true"] {
+      color: var(--cream);
+    }
+
+    .tab-btn:focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+
+    /* Panel stack */
+    .panel-stack {
+      display: grid;
+      grid-template: 1fr / 1fr;
+      align-items: stretch;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .tab-panel {
+      grid-area: 1 / 1;
+      opacity: 0;
+      transform: translateY(10px) scale(0.995);
+      pointer-events: none;
+      visibility: hidden;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      transition:
+        opacity 0.45s var(--ease-out),
+        transform 0.5s var(--ease-spring),
+        visibility 0.5s;
+    }
+
+    .tab-panel.is-active {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+      visibility: visible;
       z-index: 1;
     }
 
-    .upload-preview-wrapper {
-      margin-top: 0.85rem;
-      border-radius: 12px;
+    .panel-inner {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      overflow-y: auto;
+      animation: panelSoft 0.65s var(--ease-out) both;
+    }
+
+    .tab-panel:not(.is-active) .panel-inner {
+      animation: none;
+    }
+
+    @keyframes panelSoft {
+      from {
+        opacity: 0;
+        filter: blur(4px);
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        filter: blur(0);
+        transform: translateY(0);
+      }
+    }
+
+    .panel-hint {
+      font-size: 0.68rem;
+      color: var(--muted);
+      line-height: 1.35;
+      margin: 0 0 0.4rem;
+      flex-shrink: 0;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       overflow: hidden;
-      border: 1px solid rgba(55, 65, 81, 0.9);
-      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.9));
-      max-height: 220px;
-      box-shadow:
-        0 14px 30px rgba(15, 23, 42, 0.9),
-        0 0 0 1px rgba(15, 23, 42, 0.9);
-      display: none;
     }
 
-    .upload-preview-wrapper.visible {
-      display: block;
+    #uploadZone {
+      position: relative;
+      flex-shrink: 0;
+      border: 1px dashed var(--gold-dim);
+      border-radius: 12px;
+      padding: 0.65rem 0.75rem;
+      text-align: center;
+      cursor: pointer;
+      max-height: min(28vh, 200px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      overflow: hidden;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.04) 0%, transparent 50%);
+      transition: border-color 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out), transform 0.35s var(--ease-out);
     }
 
-    /* When a preview is present, hide the helper text and icon so the image stands alone */
-    .upload-zone.has-preview .upload-icon-frame,
-    .upload-zone.has-preview .upload-main-text,
-    .upload-zone.has-preview .upload-sub-text {
-      display: none;
+    #uploadZone::before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(120deg, var(--gold-dim), transparent 40%, transparent 60%, var(--gold-dim));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity 0.4s var(--ease-out);
+      pointer-events: none;
     }
+
+    #uploadZone:hover::before,
+    #uploadZone.dragover::before {
+      opacity: 1;
+    }
+
+    #uploadZone:hover,
+    #uploadZone.dragover {
+      border-color: var(--gold);
+      box-shadow: 0 0 40px rgba(232, 200, 114, 0.12);
+      transform: translateY(-2px);
+    }
+
+    #uploadZone.has-preview .hide-when-preview { display: none; }
+
+    #fileInput { display: none; }
+
+    .upload-preview-wrapper {
+      display: none;
+      margin-top: 0.35rem;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--stroke);
+      flex: 1;
+      min-height: 0;
+    }
+
+    .upload-preview-wrapper.visible { display: flex; align-items: center; justify-content: center; }
 
     #uploadPreview {
       display: block;
       width: 100%;
-      height: auto;
+      max-height: min(18vh, 120px);
       object-fit: contain;
-      transform-origin: center;
-      transition: transform 220ms ease-out, filter 220ms ease-out;
+      background: rgba(0, 0, 0, 0.4);
     }
 
-    .upload-preview-wrapper.visible #uploadPreview {
-      transform: scale(1.01);
-      filter: saturate(1.05);
+    .hide-when-preview {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin: 0;
     }
 
-    .upload-icon-frame {
-      width: 48px;
-      height: 48px;
-      border-radius: 14px;
-      margin: 0 auto 0.75rem;
-      background: radial-gradient(circle at 30% 0%, rgba(248, 250, 252, 0.2), rgba(37, 99, 235, 0.25));
-      border: 1px solid rgba(148, 163, 184, 0.8);
+    label {
+      display: block;
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 0.25rem;
+      flex-shrink: 0;
+    }
+
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 0.45rem 0.55rem;
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+      color: var(--cream);
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--stroke);
+      border-radius: 12px;
+      outline: none;
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+
+    input[type="text"]:focus, textarea:focus {
+      border-color: var(--gold-dim);
+      box-shadow: 0 0 0 3px rgba(232, 200, 114, 0.12);
+    }
+
+    .text-fields {
+      flex: 1;
+      min-height: 0;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow:
-        0 10px 30px rgba(15, 23, 42, 0.9),
-        0 0 18px rgba(129, 140, 248, 0.8);
-      transform: translateZ(12px);
-      position: relative;
-      overflow: hidden;
+      flex-direction: column;
+      gap: 0.35rem;
     }
 
-    .upload-icon-frame::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(248, 250, 252, 0.5), transparent 55%);
-      opacity: 0.6;
-      mix-blend-mode: screen;
-    }
-
-    .upload-icon {
-      width: 22px;
-      height: 22px;
-      border-radius: 6px;
-      border: 1px solid rgba(191, 219, 254, 0.9);
-      background: radial-gradient(circle at 30% 0%, rgba(248, 250, 252, 0.9), rgba(59, 130, 246, 0.3));
-      box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
-      position: relative;
-    }
-
-    .upload-icon::before {
-      content: "";
-      position: absolute;
-      inset: 4px 5px auto;
-      height: 7px;
-      border-radius: 999px;
-      background: linear-gradient(135deg, #1e3a8a, #22c55e);
-    }
-
-    .upload-icon::after {
-      content: "";
-      position: absolute;
-      inset: auto 7px 5px;
-      height: 3px;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.9);
-    }
-
-    .upload-main-text {
-      font-size: 0.85rem;
-      color: #e5e7eb;
-      margin-bottom: 0.2rem;
-    }
-
-    .upload-sub-text {
-      font-size: 0.78rem;
-      color: var(--muted);
-    }
-
-    .upload-zone input {
-      display: none;
-    }
-
-    .note {
-      font-size: 0.74rem;
-      color: var(--muted);
-      margin-top: 0.7rem;
-    }
-
-    .upload-zone:hover,
-    .upload-zone.dragover {
-      border-color: rgba(129, 140, 248, 0.95);
-      background: radial-gradient(circle at top, rgba(30, 64, 175, 0.9), rgba(15, 23, 42, 0.9));
-      transform: translateY(-3px);
-      box-shadow:
-        0 22px 45px rgba(15, 23, 42, 0.9),
-        0 0 24px rgba(129, 140, 248, 0.7);
-    }
-
-    .upload-zone.dragover .upload-icon-frame {
-      animation: bob 1s ease-in-out infinite;
-    }
-
-    @keyframes bob {
-      0%, 100% { transform: translateZ(12px) translateY(0); }
-      50% { transform: translateZ(12px) translateY(-4px); }
+    .text-fields .field-grow {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
     }
 
     textarea {
+      flex: 1;
+      min-height: 64px;
+      resize: none;
+      line-height: 1.35;
+    }
+
+    .btn-primary {
+      margin-top: 0.45rem;
+      flex-shrink: 0;
       width: 100%;
-      min-height: 120px;
-      padding: 0.8rem 0.8rem 0.85rem;
-      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.92));
-      border: 1px solid rgba(55, 65, 81, 0.95);
-      border-radius: 12px;
-      color: var(--text);
-      font-size: 0.9rem;
-      resize: vertical;
-      outline: none;
-      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.9);
-      transition:
-        border-color 160ms ease-out,
-        box-shadow 160ms ease-out,
-        background 160ms ease-out,
-        transform 160ms ease-out;
+      padding: 0.55rem 0.85rem;
+      font-family: var(--font-ui);
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--bg-deep);
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--gold) 0%, #f5e6bc 50%, var(--gold) 100%);
+      background-size: 200% auto;
+      box-shadow: 0 12px 40px rgba(232, 200, 114, 0.25);
+      transition: transform 0.3s var(--ease-spring), box-shadow 0.3s, background-position 0.5s var(--ease-out);
     }
 
-    textarea::placeholder {
-      color: var(--muted);
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 48px rgba(232, 200, 114, 0.35);
+      background-position: 100% center;
     }
 
-    textarea:focus {
-      border-color: rgba(129, 140, 248, 0.9);
-      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.98));
-      box-shadow:
-        0 0 0 1px rgba(79, 70, 229, 0.6),
-        0 20px 40px rgba(15, 23, 42, 0.8);
+    .btn-primary:active:not(:disabled) {
       transform: translateY(-1px);
     }
 
-    .row {
-      display: flex;
-      gap: 0.85rem;
-      margin-bottom: 0.9rem;
-      flex-wrap: wrap;
-    }
-
-    .row label {
-      display: block;
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-bottom: 0.25rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    .row > div {
-      flex: 1;
-      min-width: 0;
-    }
-
-    button {
-      background: radial-gradient(circle at 0% 0%, #fbbf24, #f97316 30%, #4f46e5 75%);
-      color: white;
-      border: none;
-      padding: 0.7rem 1.3rem;
-      border-radius: 999px;
-      font-size: 0.94rem;
-      cursor: pointer;
-      font-weight: 550;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      box-shadow:
-        0 16px 40px rgba(15, 23, 42, 0.9),
-        0 0 18px rgba(129, 140, 248, 0.8);
-      position: relative;
-      overflow: hidden;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.55rem;
-      transform: translateZ(8px);
-      transition:
-        transform 160ms ease-out,
-        box-shadow 160ms ease-out,
-        filter 160ms ease-out,
-        background-position 220ms ease-out;
-      background-size: 200% 200%;
-      background-position: 0% 50%;
-    }
-
-    button::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(120deg, rgba(248, 250, 252, 0.45), transparent 55%);
-      mix-blend-mode: screen;
-      opacity: 0.8;
-      pointer-events: none;
-    }
-
-    button span.spark {
-      width: 6px;
-      height: 6px;
-      border-radius: 999px;
-      background: #fef3c7;
-      box-shadow:
-        0 0 10px rgba(250, 250, 249, 0.8),
-        0 0 22px rgba(250, 204, 21, 0.9);
-    }
-
-    button:hover {
-      filter: brightness(1.08);
-      transform: translate3d(0, -2px, 0);
-      background-position: 100% 50%;
-      box-shadow:
-        0 22px 50px rgba(15, 23, 42, 1),
-        0 0 30px rgba(129, 140, 248, 1);
-    }
-
-    button:active {
-      transform: translate3d(0, 0, 0) scale(0.98);
-      box-shadow:
-        0 10px 26px rgba(15, 23, 42, 0.9),
-        0 0 16px rgba(99, 102, 241, 0.8);
-    }
-
-    button:disabled {
-      opacity: 0.6;
+    .btn-primary:disabled {
+      opacity: 0.45;
       cursor: not-allowed;
-      filter: grayscale(0.2);
-      box-shadow:
-        0 6px 16px rgba(15, 23, 42, 0.9),
-        0 0 10px rgba(55, 65, 81, 0.7);
-    }
-
-    button .label {
-      position: relative;
-      z-index: 1;
+      transform: none;
+      box-shadow: none;
     }
 
     .error {
-      color: var(--phishing);
-      font-size: 0.8rem;
-      margin-top: 0.6rem;
+      color: var(--danger);
+      font-size: 0.65rem;
+      margin-top: 0.25rem;
       min-height: 1em;
+      flex-shrink: 0;
     }
 
-    .error::before {
-      content: "";
-      display: inline-block;
-      width: 6px;
-      height: 6px;
-      border-radius: 999px;
-      background: radial-gradient(circle at 40% 30%, #fed7d7, #f97373);
-      box-shadow: 0 0 14px rgba(248, 113, 113, 0.9);
-      margin-right: 0.4rem;
-    }
-
-    .how-it-works {
-      font-size: 0.82rem;
-      color: var(--muted);
-      margin-top: 0.3rem;
-    }
-
-    .how-it-works h3 {
-      font-size: 0.9rem;
-      margin: 0 0 0.35rem 0;
-      color: var(--text);
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    .how-it-works ul {
-      list-style: none;
-      padding-left: 0;
-      margin: 0.2rem 0 0;
-      display: grid;
-      gap: 0.18rem;
-    }
-
-    .how-it-works li {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.4rem;
-    }
-
-    .how-it-works-bullet {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      margin-top: 0.18rem;
-      background: linear-gradient(135deg, #38bdf8, #a855f7);
-      box-shadow: 0 0 12px rgba(59, 130, 246, 0.9);
-    }
-
-    .how-it-works-text {
-      flex: 1;
-    }
-
-    .progress-card {
-      margin-top: 0.4rem;
-      margin-bottom: 0.2rem;
-      padding: 0.65rem 0.85rem 0.75rem;
-      border-radius: 999px;
-      border: 1px solid rgba(55, 65, 81, 0.9);
-      background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.92));
-      box-shadow:
-        0 10px 26px rgba(15, 23, 42, 0.9),
-        0 0 0 1px rgba(15, 23, 42, 0.95);
+    #progressCard {
       display: none;
-    }
-
-    .progress-card.visible {
-      display: flex;
+      margin: 0;
+      padding: 0.45rem 0.55rem;
+      border-radius: 10px;
+      border: 1px solid var(--stroke);
+      background: rgba(0, 0, 0, 0.4);
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+      animation: progressReveal 0.45s var(--ease-out) both;
     }
 
-    .progress-label-row {
-      display: flex;
-      flex-direction: column;
-      gap: 0.1rem;
-      min-width: 0;
+    #progressCard.visible { display: flex; }
+
+    @keyframes progressReveal {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
-    .progress-label-main {
-      font-size: 0.8rem;
-      color: #e5e7eb;
-    }
-
-    .progress-label-sub {
-      font-size: 0.72rem;
-      color: var(--muted);
-    }
-
-    .progress-percent {
+    #progressLabelMain {
       font-size: 0.78rem;
-      color: #e5e7eb;
-      margin-left: auto;
-      white-space: nowrap;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gold);
     }
 
-    .progress-bar-shell {
+    #progressLabelSub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+
+    #progressBarShell {
       flex: 1;
-      min-width: 120px;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(31, 41, 55, 0.9);
-      overflow: hidden;
-      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 1);
+      min-width: 140px;
       height: 6px;
-      position: relative;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
     }
 
-    .progress-bar-fill {
-      position: absolute;
-      inset: 0;
+    #progressBarFill {
+      height: 100%;
+      width: 100%;
       transform-origin: left center;
       transform: scaleX(0);
-      background: linear-gradient(90deg, #4ade80, #a3e635, #fbbf24, #fb7185);
-      box-shadow: 0 0 14px rgba(74, 222, 128, 0.85);
-      transition: transform 160ms ease-out;
-    }
-
-    .result {
-      margin-top: 1.4rem;
-      padding: 1.15rem 1.2rem 1.05rem;
-      border-radius: 16px;
-      display: none;
-      border: 1px solid rgba(55, 65, 81, 0.9);
-      background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.92));
-      box-shadow:
-        0 16px 40px rgba(15, 23, 42, 0.9),
-        0 0 0 1px rgba(15, 23, 42, 0.9);
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--gold), #fff4d4, var(--gold));
+      background-size: 200% 100%;
+      transition: transform 0.12s ease-out;
       position: relative;
-      overflow: hidden;
-      transform-origin: top center;
-      transform: translateY(12px) scale(0.98);
-      opacity: 0;
-      transition:
-        opacity 260ms ease-out,
-        transform 260ms ease-out,
-        box-shadow 220ms ease-out,
-        border-color 220ms ease-out,
-        background 220ms ease-out;
     }
 
-    .result::before {
+    #progressCard.visible #progressBarFill::after {
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, rgba(148, 163, 184, 0.26), transparent 55%);
-      mix-blend-mode: soft-light;
-      opacity: 0.5;
-      pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+      animation: shimmer 1.2s ease-in-out infinite;
     }
 
-    .result.visible {
-      display: block;
-      opacity: 1;
-      transform: translateY(0) scale(1);
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
     }
 
-    .result.phishing {
-      background: radial-gradient(circle at top left, var(--danger-soft), rgba(15, 23, 42, 0.96));
-      border-color: rgba(248, 113, 113, 0.9);
-      box-shadow:
-        0 24px 60px rgba(15, 23, 42, 1),
-        0 0 30px rgba(248, 113, 113, 0.7);
+    #progressPercent {
+      font-size: 0.78rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--cream);
+      min-width: 2.5rem;
     }
 
-    .result.legitimate {
-      background: radial-gradient(circle at top left, var(--success-soft), rgba(15, 23, 42, 0.96));
-      border-color: rgba(74, 222, 128, 0.9);
-      box-shadow:
-        0 24px 60px rgba(15, 23, 42, 1),
-        0 0 26px rgba(74, 222, 128, 0.7);
+    #resultCard {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      margin: 0;
+      padding: 0.55rem 0.65rem;
+      border-radius: 12px;
+      border: 1px solid var(--stroke);
+      background: rgba(12, 12, 18, 0.85);
+      backdrop-filter: blur(12px);
+      overflow: hidden;
     }
 
-    .result.uncertain {
-      background: radial-gradient(circle at top left, rgba(250, 204, 21, 0.16), rgba(15, 23, 42, 0.96));
-      border-color: rgba(250, 204, 21, 0.9);
-      box-shadow:
-        0 24px 60px rgba(15, 23, 42, 1),
-        0 0 26px rgba(250, 204, 21, 0.7);
-    }
-
-    .result.not_email {
-      background: radial-gradient(circle at top left, rgba(129, 140, 248, 0.14), rgba(15, 23, 42, 0.96));
-      border-color: rgba(129, 140, 248, 0.9);
-      box-shadow:
-        0 24px 60px rgba(15, 23, 42, 1),
-        0 0 26px rgba(129, 140, 248, 0.7);
-    }
-
-    .result-label {
-      font-size: 1.08rem;
-      font-weight: 650;
-      margin-bottom: 0.25rem;
-    }
-
-    .result.phishing .result-label {
-      color: #fecaca;
-    }
-
-    .result.legitimate .result-label {
-      color: #bbf7d0;
-    }
-
-    .result.uncertain .result-label {
-      color: #fef9c3;
-    }
-
-    .result.not_email .result-label {
-      color: #e0e7ff;
-    }
-
-    .result-top-row {
+    #resultCard.visible {
       display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 0.75rem;
+      animation: resultReveal 0.65s var(--ease-spring) both;
     }
 
-    .result-confidence {
-      font-size: 0.84rem;
+    @keyframes resultReveal {
+      from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.97);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    #resultCard.phishing {
+      border-color: rgba(255, 77, 109, 0.5);
+      box-shadow: 0 0 60px rgba(255, 77, 109, 0.12);
+    }
+
+    #resultCard.legitimate {
+      border-color: rgba(95, 227, 179, 0.45);
+      box-shadow: 0 0 60px rgba(95, 227, 179, 0.1);
+    }
+
+    #resultCard.uncertain {
+      border-color: rgba(255, 209, 102, 0.45);
+      box-shadow: 0 0 50px rgba(255, 209, 102, 0.08);
+    }
+
+    #resultCard.not_email {
+      border-color: rgba(157, 180, 255, 0.45);
+      box-shadow: 0 0 50px rgba(157, 180, 255, 0.08);
+    }
+
+    #resultLabel {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.2rem;
+      font-variation-settings: "opsz" 36;
+      flex-shrink: 0;
+    }
+
+    #resultCard.phishing #resultLabel { color: #ff8a9a; }
+    #resultCard.legitimate #resultLabel { color: var(--safe); }
+    #resultCard.uncertain #resultLabel { color: var(--warn); }
+    #resultCard.not_email #resultLabel { color: var(--info); }
+
+    #resultConfidence {
+      font-size: 0.68rem;
       color: var(--muted);
-      margin-top: 0.25rem;
+      line-height: 1.35;
+      flex-shrink: 0;
     }
 
-    .result-badges {
+    .chips {
       display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      font-size: 0.7rem;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-top: 0.35rem;
+      flex-shrink: 0;
     }
 
-    .prob-chip {
+    .chips span {
+      font-size: 0.6rem;
+      padding: 0.22rem 0.45rem;
       border-radius: 999px;
-      padding: 0.18rem 0.55rem;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(148, 163, 184, 0.8);
+      border: 1px solid var(--stroke);
+      color: var(--cream);
+      background: rgba(255, 255, 255, 0.05);
     }
 
-    .score-chip {
-      border-radius: 999px;
-      padding: 0.18rem 0.55rem;
-      background: rgba(30, 64, 175, 0.3);
-      border: 1px solid rgba(129, 140, 248, 0.9);
-      color: #e0e7ff;
+    .chips span:empty { display: none; }
+
+    #resultMessage {
+      margin-top: 0.4rem;
+      padding-top: 0.4rem;
+      border-top: 1px solid var(--stroke);
+      font-size: 0.72rem;
+      line-height: 1.4;
+      color: rgba(247, 242, 234, 0.82);
+      flex-shrink: 0;
     }
 
-    .result-message {
-      font-size: 0.82rem;
-      margin-top: 0.5rem;
+    #resultPreview {
+      margin-top: 0.35rem;
+      flex: 1;
+      min-height: 0;
+      font-family: ui-monospace, monospace;
+      font-size: 0.62rem;
+      line-height: 1.35;
       color: var(--muted);
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-y: auto;
+      padding: 0.4rem 0.5rem;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--stroke);
     }
 
-    .result-preview {
-      font-size: 0.76rem;
-      color: var(--muted);
-      margin-top: 0.8rem;
-      max-height: 6em;
-      padding: 0.5rem 0.7rem;
-      background: rgba(15, 23, 42, 0.96);
-      border-radius: 10px;
-      overflow: auto;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      border: 1px solid rgba(31, 41, 55, 0.9);
-      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 1);
-    }
-
-    @media (max-width: 900px) {
-      .shell-inner {
-        padding: 1.2rem 1rem 1.4rem;
-      }
-      .header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .badge-stack {
-        align-items: flex-start;
-      }
-    }
-
-    @media (max-width: 768px) {
-      body {
-        padding: 1.25rem 0.65rem;
-      }
-      .cards-row {
-        flex-direction: column;
-      }
-      button {
-        width: 100%;
-        justify-content: center;
-      }
-      .toolbar {
-        flex-direction: column;
-        align-items: flex-start;
-      }
+    .foot {
+      margin: 0;
+      padding-top: 0.15rem;
+      text-align: center;
+      font-size: 0.58rem;
+      color: rgba(247, 242, 234, 0.35);
+      letter-spacing: 0.04em;
+      flex-shrink: 0;
+      line-height: 1.3;
     }
   </style>
 </head>
 <body>
+  <div class="bg-stage" aria-hidden="true">
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="orb orb-c"></div>
+  </div>
+  <div class="noise" aria-hidden="true"></div>
+
   <div class="page">
-    <div class="shell">
-      <div class="shell-inner">
-        <header class="header">
-          <div class="brand">
-            <div class="brand-kicker">
-              <span class="brand-kicker-dot"></span>
-              Advanced phishing surface
-            </div>
-            <div class="brand-title">Phishing Scanner</div>
-            <div class="brand-subtitle">
-              Upload an email screenshot or paste the content. A fine-tuned RoBERTa model estimates phishing risk with high accuracy and email-aware heuristics.
-            </div>
-          </div>
-          <div class="badge-stack">
-            <div class="badge">
-              <span>RoBERTa · test accuracy&nbsp;≈&nbsp;98.8%</span>
-              <span class="badge-pill">F1&nbsp;0.989 · recall&nbsp;98.6%</span>
-            </div>
-            <div class="badge-meter">
-              <div class="badge-meter-fill"></div>
-              <div class="badge-meter-gloss"></div>
-            </div>
-          </div>
-        </header>
+    <header class="hero">
+      <div class="hero-left">
+        <div class="hero-badge">Live analysis</div>
+        <h1>PRISM</h1>
+      </div>
+      <p>Predictive Risk Indicator — screenshot OCR or pasted text, one screen.</p>
+    </header>
 
-        <div class="toolbar">
-          <div class="toolbar-left">
-            <div class="pill">
-              <span class="pill-dot"></span>
-              <span>Screenshot → OCR → RoBERTa</span>
-            </div>
-            <div class="pill">
-              <span class="pill-dot-warn"></span>
-              <span>Heuristics for non‑email images &amp; uncertainty</span>
-            </div>
-          </div>
-          <div class="toolbar-right">
-            <div class="pill">
-              <span>Best for desktop &amp; mobile email screenshots</span>
-            </div>
-          </div>
+    <div class="main-split">
+      <div class="glass">
+        <div class="tablist" role="tablist" aria-label="Input mode">
+          <span class="tab-glider" id="tabGlider" data-pos="0" aria-hidden="true"></span>
+          <button type="button" class="tab-btn" role="tab" id="tabBtnScreenshot" aria-selected="true" aria-controls="panelScreenshot">Screenshot</button>
+          <button type="button" class="tab-btn" role="tab" id="tabBtnText" aria-selected="false" aria-controls="panelText">Text</button>
         </div>
 
-        <div class="cards-row">
-          <div class="card">
-            <div class="card-header-row">
-              <h2>Option 1 · Upload screenshot</h2>
-              <div class="card-tag">Visual email</div>
-            </div>
-            <p class="card-description">
-              Drop in a clean screenshot of your email window. We run OCR, normalize the text and feed it through the phishing detector.
-            </p>
-            <div class="upload-zone" id="uploadZone">
-              <div class="upload-orbit"></div>
-              <div class="upload-content">
-                <div class="upload-icon-frame">
-                  <div class="upload-icon"></div>
-                </div>
-                <p class="upload-main-text">Drag &amp; drop an image, or click to browse</p>
-                <p class="upload-sub-text">Optimized for PNG, JPEG, WEBP, HEIC/HEIF (where supported).</p>
+        <div class="panel-stack">
+          <div class="tab-panel is-active" role="tabpanel" id="panelScreenshot" aria-labelledby="tabBtnScreenshot">
+            <div class="panel-inner">
+              <p class="panel-hint">Drop a capture; we OCR then classify with the same model as text.</p>
+              <div id="uploadZone">
+                <p class="hide-when-preview">Click or drop an image here</p>
                 <div class="upload-preview-wrapper">
-                  <img id="uploadPreview" alt="Uploaded screenshot preview" />
+                  <img id="uploadPreview" alt="Preview">
+                </div>
+                <input type="file" id="fileInput" accept="image/*">
+              </div>
+              <button type="button" class="btn-primary" id="btnPredictImage" disabled>Run analysis</button>
+              <div class="error" id="imageError"></div>
+            </div>
+          </div>
+
+          <div class="tab-panel" role="tabpanel" id="panelText" aria-labelledby="tabBtnText" hidden>
+            <div class="panel-inner">
+              <p class="panel-hint">Paste subject and body — clearest signal, no OCR.</p>
+              <div class="text-fields">
+                <div>
+                  <label for="subjectInput">Subject</label>
+                  <input type="text" id="subjectInput" autocomplete="off" placeholder="Optional">
+                </div>
+                <div class="field-grow">
+                  <label for="bodyInput">Body</label>
+                  <textarea id="bodyInput" placeholder="Paste the full message…"></textarea>
                 </div>
               </div>
-              <input type="file" id="fileInput" accept="image/*">
-            </div>
-            <button type="button" id="btnPredictImage" disabled>
-              <span class="label">Analyze screenshot</span>
-              <span class="spark"></span>
-            </button>
-            <div class="error" id="imageError"></div>
-          </div>
-
-          <div class="card">
-            <div class="card-header-row">
-              <h2>Option 2 · Paste email text</h2>
-              <div class="card-tag">Raw content</div>
-            </div>
-            <p class="card-description">
-              Paste subject and body directly for the cleanest possible signal (no OCR artifacts, perfect for forwarded emails).
-            </p>
-            <div class="row">
-              <div>
-                <label>Subject (optional)</label>
-                <textarea id="subjectInput" placeholder="Subject line as it appears in the email client..."></textarea>
-              </div>
-              <div>
-                <label>Body (or full email)</label>
-                <textarea id="bodyInput" placeholder="Paste the full email body, including links, disclaimers and signature..."></textarea>
-              </div>
-            </div>
-            <button type="button" id="btnPredictText">
-              <span class="label">Analyze pasted text</span>
-              <span class="spark"></span>
-            </button>
-            <div class="error" id="textError"></div>
-          </div>
-        </div>
-
-        <div class="how-it-works">
-          <h3>How it works</h3>
-          <ul>
-            <li>
-              <span class="how-it-works-bullet"></span>
-              <span class="how-it-works-text">Text is extracted from your screenshot (or taken straight from your pasted input).</span>
-            </li>
-            <li>
-              <span class="how-it-works-bullet"></span>
-              <span class="how-it-works-text">A RoBERTa model trained on multiple curated email datasets scores phishing vs legitimate.</span>
-            </li>
-            <li>
-              <span class="how-it-works-bullet"></span>
-              <span class="how-it-works-text">Email‑likeness heuristics and confidence rules flag non‑email images and uncertain predictions.</span>
-            </li>
-          </ul>
-        </div>
-
-        <div class="progress-card" id="progressCard">
-          <div class="progress-label-row">
-            <div class="progress-label-main" id="progressLabelMain">Preparing analysis…</div>
-            <div class="progress-label-sub" id="progressLabelSub">This usually takes a few seconds.</div>
-          </div>
-          <div class="progress-bar-shell">
-            <div class="progress-bar-fill" id="progressBarFill"></div>
-          </div>
-          <div class="progress-percent" id="progressPercent">0%</div>
-        </div>
-
-        <div class="card result" id="resultCard">
-          <div class="result-top-row">
-            <div>
-              <div class="result-label" id="resultLabel"></div>
-              <div class="result-confidence" id="resultConfidence"></div>
-            </div>
-            <div class="result-badges">
-              <div class="prob-chip" id="resultProbChip"></div>
-              <div class="score-chip" id="resultScoreChip"></div>
+              <button type="button" class="btn-primary" id="btnPredictText">Run analysis</button>
+              <div class="error" id="textError"></div>
             </div>
           </div>
-          <div class="result-message" id="resultMessage"></div>
-          <div class="result-preview" id="resultPreview"></div>
         </div>
       </div>
+
+      <aside class="status-column" aria-label="Analysis outcome">
+        <div class="status-column-title">Outcome</div>
+        <div id="progressCard">
+          <div>
+            <div id="progressLabelMain"></div>
+            <div id="progressLabelSub"></div>
+          </div>
+          <div id="progressBarShell"><div id="progressBarFill"></div></div>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="result-stack">
+          <div id="resultEmpty" class="result-empty">Run analysis to see the verdict.</div>
+          <div id="resultCard">
+            <div id="resultLabel"></div>
+            <div id="resultConfidence"></div>
+            <div class="chips">
+              <span id="resultProbChip"></span>
+              <span id="resultScoreChip"></span>
+            </div>
+            <div id="resultMessage"></div>
+            <div id="resultPreview"></div>
+          </div>
+        </div>
+        <p class="foot">Advisory only — verify high-risk mail with your security process.</p>
+      </aside>
     </div>
   </div>
-  <script src="/static/app.js"></script>
+
+  <script>
+(function () {
+  function formatApiError(data, fallback) {
+    var d = data && data.detail;
+    if (typeof d === "string") return d;
+    if (Array.isArray(d)) return d.map(function (x) { return x.msg || JSON.stringify(x); }).join("; ") || fallback;
+    if (d && typeof d === "object") return JSON.stringify(d);
+    return fallback;
+  }
+
+  var uploadZone = document.getElementById("uploadZone");
+  var fileInput = document.getElementById("fileInput");
+  var btnPredictImage = document.getElementById("btnPredictImage");
+  var btnPredictText = document.getElementById("btnPredictText");
+  var subjectInput = document.getElementById("subjectInput");
+  var bodyInput = document.getElementById("bodyInput");
+  var resultCard = document.getElementById("resultCard");
+  var resultLabel = document.getElementById("resultLabel");
+  var resultConfidence = document.getElementById("resultConfidence");
+  var resultMessage = document.getElementById("resultMessage");
+  var resultPreview = document.getElementById("resultPreview");
+  var resultProbChip = document.getElementById("resultProbChip");
+  var resultScoreChip = document.getElementById("resultScoreChip");
+  var imageError = document.getElementById("imageError");
+  var textError = document.getElementById("textError");
+  var uploadPreview = document.getElementById("uploadPreview");
+  var uploadPreviewWrapper = uploadPreview && uploadPreview.parentElement;
+  var progressCard = document.getElementById("progressCard");
+  var progressLabelMain = document.getElementById("progressLabelMain");
+  var progressLabelSub = document.getElementById("progressLabelSub");
+  var progressBarFill = document.getElementById("progressBarFill");
+  var progressPercent = document.getElementById("progressPercent");
+
+  var tabBtnScreenshot = document.getElementById("tabBtnScreenshot");
+  var tabBtnText = document.getElementById("tabBtnText");
+  var panelScreenshot = document.getElementById("panelScreenshot");
+  var panelText = document.getElementById("panelText");
+  var tabGlider = document.getElementById("tabGlider");
+  var resultEmpty = document.getElementById("resultEmpty");
+
+  function setTab(screenshot) {
+    tabBtnScreenshot.setAttribute("aria-selected", screenshot ? "true" : "false");
+    tabBtnText.setAttribute("aria-selected", screenshot ? "false" : "true");
+    panelScreenshot.classList.toggle("is-active", screenshot);
+    panelText.classList.toggle("is-active", !screenshot);
+    panelScreenshot.hidden = !screenshot;
+    panelText.hidden = screenshot;
+    if (tabGlider) tabGlider.setAttribute("data-pos", screenshot ? "0" : "1");
+  }
+
+  tabBtnScreenshot.addEventListener("click", function () { setTab(true); });
+  tabBtnText.addEventListener("click", function () { setTab(false); });
+
+  setTab(true);
+
+  var selectedFile = null;
+  var previewUrl = null;
+  var progressTimer = null;
+  var currentProgress = 0;
+
+  function setProgress(value) {
+    if (!progressBarFill || !progressPercent) return;
+    var clamped = Math.max(0, Math.min(100, value));
+    currentProgress = clamped;
+    progressBarFill.style.transform = "scaleX(" + (clamped / 100) + ")";
+    progressPercent.textContent = clamped.toFixed(0) + "%";
+  }
+
+  function startProgress(kind) {
+    if (!progressCard || !progressBarFill || !progressPercent) return;
+    if (progressTimer) {
+      clearInterval(progressTimer);
+      progressTimer = null;
+    }
+    currentProgress = 0;
+    setProgress(0);
+    if (progressLabelMain) {
+      progressLabelMain.textContent = kind === "image" ? "Analyzing screenshot…" : "Analyzing text…";
+    }
+    if (progressLabelSub) {
+      progressLabelSub.textContent = "OCR (if needed) and classifier.";
+    }
+    progressCard.classList.add("visible");
+    progressTimer = setInterval(function () {
+      if (currentProgress >= 88) return;
+      setProgress(currentProgress + 3 + Math.random() * 4);
+    }, 220);
+  }
+
+  function finishProgress() {
+    if (!progressCard) return;
+    if (progressTimer) {
+      clearInterval(progressTimer);
+      progressTimer = null;
+    }
+    setProgress(100);
+    setTimeout(function () {
+      progressCard.classList.remove("visible");
+      setProgress(0);
+    }, 600);
+  }
+
+  function updatePreview(file) {
+    if (!uploadPreview || !uploadPreviewWrapper) return;
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      previewUrl = null;
+    }
+    if (!file || !file.type || !file.type.startsWith("image/")) {
+      uploadPreviewWrapper.classList.remove("visible");
+      uploadPreview.src = "";
+      uploadZone.classList.remove("has-preview");
+      return;
+    }
+    previewUrl = URL.createObjectURL(file);
+    uploadPreview.src = previewUrl;
+    uploadPreviewWrapper.classList.add("visible");
+    uploadZone.classList.add("has-preview");
+  }
+
+  uploadZone.addEventListener("click", function () { fileInput.click(); });
+  uploadZone.addEventListener("dragover", function (e) { e.preventDefault(); uploadZone.classList.add("dragover"); });
+  uploadZone.addEventListener("dragleave", function () { uploadZone.classList.remove("dragover"); });
+  uploadZone.addEventListener("drop", function (e) {
+    e.preventDefault();
+    uploadZone.classList.remove("dragover");
+    var f = e.dataTransfer && e.dataTransfer.files[0];
+    if (f && f.type && f.type.startsWith("image/")) {
+      selectedFile = f;
+      btnPredictImage.disabled = false;
+      imageError.textContent = "";
+      updatePreview(f);
+    }
+  });
+  fileInput.addEventListener("change", function () {
+    var f = fileInput.files[0];
+    if (f && f.type && f.type.startsWith("image/")) {
+      selectedFile = f;
+      btnPredictImage.disabled = false;
+      imageError.textContent = "";
+      updatePreview(f);
+    }
+  });
+
+  function showResult(data) {
+    var finalLabel = data.final_label || data.label;
+    var label = finalLabel || "uncertain";
+    var confidence = typeof data.confidence === "number" ? data.confidence : 0;
+    var textPreview = data.text_preview || "";
+
+    resultCard.classList.remove("phishing", "legitimate", "uncertain", "not_email");
+    resultCard.classList.add(label);
+    resultCard.classList.remove("visible");
+    void resultCard.offsetWidth;
+    resultCard.classList.add("visible");
+
+    var labelText;
+    if (label === "phishing") labelText = "Phishing email";
+    else if (label === "legitimate") labelText = "Legitimate email";
+    else if (label === "not_email") labelText = "Not an email";
+    else labelText = "Uncertain result";
+    resultLabel.textContent = labelText;
+
+    if (typeof data.phishing_probability === "number" && typeof data.legitimate_probability === "number") {
+      var pPhish = Math.round(data.phishing_probability * 100);
+      var pLegit = Math.round(data.legitimate_probability * 100);
+      var reason = data.reason ? String(data.reason).replace(/_/g, " ") : "";
+      resultConfidence.textContent = reason
+        ? "Confidence: " + Math.round(confidence * 100) + "% · " + reason
+        : "Confidence: " + Math.round(confidence * 100) + "%";
+      if (resultProbChip) resultProbChip.textContent = "Phish " + pPhish + "% · Legit " + pLegit + "%";
+    } else {
+      resultConfidence.textContent = "Confidence: " + Math.round(confidence * 100) + "%";
+      if (resultProbChip) resultProbChip.textContent = "";
+    }
+
+    if (resultScoreChip) {
+      if (typeof data.email_score === "number") {
+        var score = Math.round(data.email_score * 1000) / 1000;
+        resultScoreChip.textContent = "Email-likeness: " + score;
+      } else {
+        resultScoreChip.textContent = "";
+      }
+    }
+
+    var msg = "";
+    if (label === "phishing") {
+      msg = "Treat as dangerous. Do not click links or open attachments unless you are sure.";
+    } else if (label === "legitimate") {
+      msg = "Model says legitimate; still use normal caution.";
+    } else if (label === "uncertain") {
+      msg = "Low confidence — review manually before acting.";
+    } else if (label === "not_email") {
+      msg = "Input does not look like an email; result may not be meaningful.";
+    }
+    resultMessage.textContent = msg;
+    resultPreview.textContent = textPreview || "";
+
+    if (resultEmpty) resultEmpty.classList.add("is-hidden");
+  }
+
+  btnPredictImage.addEventListener("click", async function () {
+    if (!selectedFile) return;
+    imageError.textContent = "";
+    btnPredictImage.disabled = true;
+    startProgress("image");
+    var form = new FormData();
+    form.append("file", selectedFile);
+    try {
+      var r = await fetch("/predict/image", { method: "POST", body: form });
+      var data = await r.json();
+      if (!r.ok) throw new Error(formatApiError(data, r.statusText));
+      showResult(data);
+    } catch (e) {
+      imageError.textContent = e.message || "Request failed";
+    } finally {
+      btnPredictImage.disabled = false;
+      finishProgress();
+    }
+  });
+
+  btnPredictText.addEventListener("click", async function () {
+    textError.textContent = "";
+    var subject = (subjectInput.value || "").trim();
+    var body = (bodyInput.value || "").trim();
+    if (!subject && !body) {
+      textError.textContent = "Enter subject and/or body.";
+      return;
+    }
+    btnPredictText.disabled = true;
+    startProgress("text");
+    try {
+      var r = await fetch("/predict/text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject: subject || undefined, body: body || undefined }),
+      });
+      var data = await r.json();
+      if (!r.ok) throw new Error(formatApiError(data, r.statusText));
+      showResult(data);
+    } catch (e) {
+      textError.textContent = e.message || "Request failed";
+    } finally {
+      btnPredictText.disabled = false;
+      finishProgress();
+    }
+  });
+})();
+  </script>
 </body>
 </html>
